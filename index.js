@@ -345,7 +345,7 @@ const start = () => {
                                        }
                                     }
 
-                                    stateRating[i].rating = rate / stateRating[i].reviewtimes;
+                                    stateRating[i].rating = (rate + user.rating) / stateRating[i].reviewtimes;
                                     stateRating[i].rating = Math.floor(stateRating[i].rating * 100) / 100
                                     controllers.updateTeaRating(stateRating[i])
                                  })
