@@ -1,27 +1,24 @@
 const TelegramApi = require('node-telegram-bot-api')
 const express = require('express')
-const userRouter = require('./routes/routes')
-const state = require('./state')
-const { Pool } = require('pg')
-const { pool } = require('./db')
+const Router = require('express');
 const controllers = require('./controllers/controllers')
 
 const PORT = process.env.PORT || 8080
 const app = express()
+
 require('dotenv').config()
 const opt = { polling: true }
 const bot = new TelegramApi(process.env.BOT_TOKEN, opt)
 
-let isTea;
-let index;
-let User = {};
-let myReview = [];
 
-//app.use(express.json())
-app.use('/api', userRouter)
+
+
+app.use(express.json())
+app.use('/api', Router)
 app.listen(PORT, () => {
    console.log(`App running on port ${PORT}.`)
 })
+
 
 const start = () => {
    bot.setMyCommands([
@@ -102,29 +99,21 @@ const start = () => {
       const chatId = msg.chat.id;
 
       if (text === '/start') {
-         /* let flag = 0;
-          for (let i = 0; i < state.users.length; i++) {
-             if (state.users[i].id == msg.from.id) {
-                flag++
-             }
-          }
-          if (flag == 0) {
-             User.id = msg.from.id;
-             User.cou = 0;
-             User.newTea = {};
-             User.teaFlag = 0;
-             let clone = {};
- 
-             for (let key in User) {
-                clone[key] = User[key];
-             }
-             state.users.push(clone)
-          }*/
-         //Router.post('/user',UserController.createUser)
+         let users;
+         controllers.getUser(function (result) {
+            users = result.rows;
+            let flag = 0;
+            for (let i = 0; i < users.length; i++) {
+               if (users[i].userid == msg.from.id) {
+                  flag = 1
+               }
+            }
+            if (flag == 0) {
+               controllers.createUser(msg.from.id)
+            }
+         })
 
-         controllers.createUser(msg.chat.id, 0, 0)
-
-         return bot.sendMessage(chatId, `Добро пожаловать в чайный дневник, ${msg.from.first_name}! Ты можешь посмотреть отзывы о чае или написать свой.`, getMainMenu);
+         return bot.sendMessage(chatId, `Добро пожаловать в чайный дневник, ${msg.from.first_name}! Ты можешь посмотреть отзывы о чае или написать свой`, getMainMenu);
       }
       if (text === '/mail') {
          return bot.sendMessage(chatId, 'football-forever@bk.ru \n Применимо на сайте <a href="https://moychay.ru/">Мойчай.ру</a>', { parse_mode: "HTML" })
@@ -135,268 +124,289 @@ const start = () => {
       if (text === 'Все отзывы') {
          return bot.sendMessage(chatId, 'Выберете вид чая', lookOptionsWithDescription);
       }
-      let reviewFlag = 0;
-      let numberReview = 0;
-
       if (text === 'Мои отзывы') {
+         let myReview = [];
          myReview.length = 0;
-         console.log(state.stateRewiew);
-         for (let i = 0; i < state.stateRewiew.length; i++) {
-            if (msg.from.id === state.stateRewiew[i].userId) {
-               reviewFlag++
-               console.log(state.stateRewiew);
-               myReview[i] = state.stateRewiew[i]
+         let numberReview = 0;
+         controllers.getMyReview(msg.from.id, function (result) {
+            let myReview = result.rows;
+            for (let i = 0; i < myReview.length; i++) {
+               myReview[i].numberReview = ++numberReview;
             }
-         }
-         myReview = myReview.filter(Boolean);
-
-         for (let i = 0; i < reviewFlag; i++) {
-            myReview[i].numberReview = ++numberReview;
-         }
-
-         result = myReview.map((item) =>
-            `${item.numberReview}. ${item.autorName}\n${item.name}, ${item.rating}\n${item.description}\n\n`);
-         result = result.join('');
-         if (reviewFlag > 0) {
-            bot.sendMessage(chatId, `${result}`, reviewDelete)
-         }
-         if (reviewFlag === 0) {
-            bot.sendMessage(chatId, `У вас пока нет отзывов`)
-         }
+            if (myReview.length === 0) {
+               bot.sendMessage(chatId, `У вас пока нет отзывов`)
+            } else {
+               result = myReview.map((item) =>
+                  `${item.numberReview}. ${item.autorname}\n${item.teaname}, ${item.rating}\n${item.teadescription}\n\n`);
+               result = result.join('');
+               bot.sendMessage(chatId, `${result}`, reviewDelete)
+            }
+         })
       }
       if (text === 'Добавить отзыв') {
          return bot.sendMessage(chatId, 'На какой чай хотите добавить отзыв?', lookOptionsForAdd);
       }
-
    })
 
    bot.on('callback_query', (msg) => {
-
       data = msg.data;
       const chatId = msg.message.chat.id;
       let result;
-      function showRates(teaKind) {
-         let thisTea = []
-         for (let i = 0; i < state.stateRating.length; i++) {
-            if (state.stateRating[i].isTea == teaKind) {
-               thisTea[i] = state.stateRating[i]
-            }
-         }
+      function showRates(thisTea) {
          if (thisTea.length == 0) {
-            bot.sendMessage(chatId, 'Пока что нет рейнтигов и отзывов на такие чаи.')
+            bot.sendMessage(chatId, 'Пока что нет рейнтигов и отзывов на такие чаи')
          } else {
             result = thisTea.map((item) =>
-               `${item.name}, <strong>${item.rating}</strong>  \n\n`);
+               `${item.teaname}, <strong>${item.rating}</strong>  \n\n`);
             result = result.join('');
             bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
          }
       }
       if (data == 'puerShuRate') {
-         showRates(1)
+         controllers.getRatings(1, function (result) {
+            thisTea = result.rows
+            showRates(thisTea)
+         })
       }
       if (data == 'puerShenRate') {
-         showRates(2)
+         controllers.getRatings(2, function (result) {
+            thisTea = result.rows
+            showRates(thisTea)
+         })
       }
       if (data == 'ulunRate') {
-         showRates(3)
+         controllers.getRatings(3, function (result) {
+            thisTea = result.rows
+            showRates(thisTea)
+         })
       }
       if (data == 'greenRate') {
-         showRates(4)
+         controllers.getRatings(4, function (result) {
+            thisTea = result.rows
+            showRates(thisTea)
+         })
       }
       if (data == 'redRate') {
-         showRates(5)
+         controllers.getRatings(5, function (result) {
+            thisTea = result.rows
+            showRates(thisTea)
+         })
       }
-      function showReview(teaKind) {
-         let thisTea = []
-         for (let i = 0; i < state.stateRewiew.length; i++) {
-            if (state.stateRewiew[i].isTea == teaKind) {
-               thisTea[i] = state.stateRewiew[i]
-            }
-         }
+      function showReview(thisTea) {
          if (thisTea.length == 0) {
-            bot.sendMessage(chatId, 'Пока что нет отзывов на такие чаи.')
+            bot.sendMessage(chatId, 'Пока что нет отзывов на такие чаи')
          } else {
             result = thisTea.map((item) =>
-               `${item.autorName}\n<b>${item.name}, ${item.rating}</b>\n${item.description}\n\n`);
+               `${item.autorname}\n<b>${item.teaname}, ${item.rating}</b>\n${item.teadescription}\n\n`);
             result = result.join('');
             bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
          }
       }
       if (data == 'puerShuView') {
-         showReview(1)
+         controllers.getReviews(1, function (result) {
+            thisTea = result.rows
+            showReview(thisTea)
+         })
       }
       if (data == 'puerShenView') {
-         showReview(2)
+         controllers.getReviews(2, function (result) {
+            thisTea = result.rows
+            showReview(thisTea)
+         })
       }
       if (data == 'redView') {
-         showReview(5)
+         controllers.getReviews(5, function (result) {
+            thisTea = result.rows
+            showReview(thisTea)
+         })
       }
       if (data == 'ulunView') {
-         showReview(3)
+         controllers.getReviews(3, function (result) {
+            thisTea = result.rows
+            showReview(thisTea)
+         })
       }
       if (data == 'greenView') {
-         showReview(4)
+         controllers.getReviews(4, function (result) {
+            thisTea = result.rows
+            showReview(thisTea)
+         })
       }
-      for (let i = 0; i < state.users.length; i++) {
-         if (msg.from.id == state.users[i].id) {
-            let userIndex
-            userIndex = state.users.findIndex(item => item.id == state.users[i].id);
-            //console.log(userIndex);
-            let teaName, description, rating;
-            let flag
-            if ((data == 'puerShuAdd') || (data == 'puerShenAdd') || (data == 'ulunAdd') || (data == 'redAdd') || (data == 'greenAdd')) {
-               isTea = data;
-               bot.sendMessage(chatId, 'Введите название чая');
-               state.users[i].teaFlag = 1
-               state.users[i].cou = 1
-               flag = 0
 
-               if ((state.users[i].teaFlag == 1) && (msg.from.id == state.users[i].id)) {
-                  bot.on('message', async msg => {
-                     flag++
-                     if ((state.users[i].cou === 1) && (flag === 1) && (msg.from.id == state.users[i].id)) {
-                        teaName = msg.text;
-                        setname(teaName)
-                        bot.sendMessage(chatId, 'Напишите описание')
-                        state.users[i].cou++
-                        flag += 2
-                     }
+      controllers.getUser(function (result) {
+         let users = result.rows
+         for (let i = 0; i < users.length; i++) {
+            users[i].newTea = {}
+            if (msg.from.id == users[i].userid) {
 
+               let teaName, description, rating;
+               let flag
 
-                     if ((state.users[i].cou == 2) && (flag === 4) && (msg.from.id == state.users[i].id)) {
-
-                        description = msg.text
-                        setdes(description)
-                        state.users[i].cou++
-                        flag += 2
-                     }
-
-
-                     console.log(flag);
-                     if ((state.users[i].cou == 3) && (flag === 6) && (msg.from.id == state.users[i].id)) {
-                        bot.sendMessage(chatId, 'Поставьте рейтинг', showRateNumber);
-                        state.users[i].cou = 0;
-                        console.log(state.users[i].newTea);
-                        flag = 0
-                     }
-
-
-                  })
-                  flag = 0
-               }
-               flag = 0
-               state.users[i].teaFlag = 0;
-
-               function setname(name) {
-                  state.users[i].newTea.name = name
-
-               }
-               function setdes(des) {
-                  state.users[i].newTea.description = des
-
-               }
-
-            }
-            if ((data == '1') || (data == '2') || (data == '3') || (data == '4') || (data == '5') || (data == '6') || (data == '7') || (data == '8') || (data == '9') || (data == '10')) {
-               rating = +data;
-               state.users[i].newTea.rating = rating;
-               state.users[i].newTea.id = state.stateRewiew.length + 1;
-               state.users[i].newTea.userId = msg.from.id
-               if (isTea === 'puerShuAdd') {
-                  state.users[i].newTea.isTea = 1
-               }
-               if (isTea === 'puerShenAdd') {
-                  state.users[i].newTea.isTea = 2
-               }
-               if (isTea === 'ulunAdd') {
-                  state.users[i].newTea.isTea = 3
-               }
-               if (isTea === 'redAdd') {
-                  state.users[i].newTea.isTea = 5
-               }
-               if (isTea === 'greenAdd') {
-                  state.users[i].newTea.isTea = 4
-               }
-
-               state.users[i].newTea.autorName = msg.from.first_name;
-               if (msg.from.last_name !== undefined) {
-                  state.users[i].newTea.autorName = `${msg.from.first_name} ${msg.from.last_name}`;
-               } else {
-                  state.users[i].newTea.autorName = msg.from.first_name;
-               }
-
-               bot.sendMessage(chatId, `${state.users[i].newTea.autorName}\n${state.users[i].newTea.name}, ${state.users[i].newTea.rating} \n${state.users[i].newTea.description}\n\n Записать чай?`, reviewAction, { parse_mode: "HTML" });
-            }
-
-            if (data == 'addTeaToState') {
-               bot.sendMessage(chatId, 'Отлично! Вы добавили отзыв.')
-
-               let clone = {};
-
-               for (let key in state.users[i].newTea) {
-                  clone[key] = state.users[i].newTea[key];
-               }
-               let clone2 = {
-                  id: state.stateRating.id++,
-                  name: state.users[i].newTea.name,
-                  isTea: state.users[i].newTea.isTea,
-                  rating: state.users[i].newTea.rating,
-                  review_times: 1
-               }
-               let flag = 0;
-               let rate = 0;
-               for (let i = 0; i < state.stateRating.length; i++) {
-                  if (state.stateRating[i].name == clone.name) {
-                     state.stateRating[i].review_times++;
-                     for (let j = 0; j < state.stateRewiew.length; j++) {
-                        if (clone.name == state.stateRewiew[j].name) {
-                           rate += state.stateRewiew[j].rating
-                        }
-                     }
-                     state.stateRating[i].rating = (rate + clone.rating) / state.stateRating[i].review_times;
-                     state.stateRating[i].rating = Math.floor(state.stateRating[i].rating * 100) / 100
-                     flag++
+               if ((data == 'puerShuAdd') || (data == 'puerShenAdd') || (data == 'ulunAdd') || (data == 'redAdd') || (data == 'greenAdd')) {
+                  isTea = data;
+                  if (isTea === 'puerShuAdd') {
+                     controllers.setTeaIsTea(1, msg.from.id)
                   }
-               }
-               if (flag === 0) {
-                  state.stateRating.push(clone2);
-               }
-               state.stateRewiew.push(clone);
-               state.users[i].newTea = {}
+                  if (isTea === 'puerShenAdd') {
+                     controllers.setTeaIsTea(2, msg.from.id)
+                  }
+                  if (isTea === 'ulunAdd') {
+                     controllers.setTeaIsTea(3, msg.from.id)
+                  }
+                  if (isTea === 'greenAdd') {
+                     controllers.setTeaIsTea(4, msg.from.id)
+                  }
+                  if (isTea === 'redAdd') {
+                     controllers.setTeaIsTea(5, msg.from.id)
+                  }
 
+                  bot.sendMessage(chatId, 'Введите название чая');
+                  users[i].teaFlag = 1
+                  users[i].cou = 1
+                  flag = 0
+
+                  if ((users[i].teaFlag == 1) && (msg.from.id == users[i].userid)) {
+                     bot.on('message', async msg => {
+                        flag++
+                        if ((users[i].cou === 1) && (flag === 1) && (msg.from.id == users[i].userid)) {
+                           teaName = msg.text;
+                           controllers.setTeaName(teaName, msg.from.id)
+                           bot.sendMessage(chatId, 'Напишите описание')
+                           users[i].cou++
+                           flag += 2
+                        }
+                        if ((users[i].cou == 2) && (flag === 4) && (msg.from.id == users[i].userid)) {
+                           description = msg.text
+                           controllers.setTeaDes(description, msg.from.id)
+                           users[i].cou++
+                           flag += 2
+                        }
+                        if ((users[i].cou == 3) && (flag === 6) && (msg.from.id == users[i].userid)) {
+                           bot.sendMessage(chatId, 'Поставьте рейтинг', showRateNumber);
+                           users[i].cou = 0;
+
+                           flag = 0
+                        }
+                     })
+                     flag = 0
+                  }
+                  flag = 0
+                  users[i].teaFlag = 0;
+               }
+
+               if ((data == '1') || (data == '2') || (data == '3') || (data == '4') || (data == '5') || (data == '6') || (data == '7') || (data == '8') || (data == '9') || (data == '10')) {
+                  controllers.getNewTea(msg.from.id, function (result) {
+                     users[i].newTea = result.rows[0]
+                     rating = +data;
+                     users[i].newTea.rating = rating;
+                     controllers.setTeaRating(rating, msg.from.id)
+                     users[i].newTea.userId = msg.from.id
+
+
+                     if (msg.from.last_name !== undefined) {
+                        users[i].newTea.autorname = `${msg.from.first_name} ${msg.from.last_name}`;
+                        controllers.setTeaAutor(users[i].newTea.autorname, msg.from.id)
+                     } else {
+                        users[i].newTea.autorname = msg.from.first_name;
+                        controllers.setTeaAutor(users[i].newTea.autorname, msg.from.id)
+                     }
+
+                     bot.sendMessage(chatId, `${users[i].newTea.autorname}\n${users[i].newTea.teaname}, ${users[i].newTea.rating} \n${users[i].newTea.teadescription}\n\n Записать чай?`, reviewAction, { parse_mode: "HTML" });
+                  })
+               }
+
+               if (data == 'addTeaToState') {
+                  bot.sendMessage(chatId, 'Отлично! Вы добавили отзыв')
+                  controllers.getNewTea(msg.from.id, function (result) {
+                     users[i].newTea = result.rows[0];
+                     let user = users[i].newTea;
+
+                     controllers.createNewTea(users[i])
+                     const newRating = {
+                        teaname: users[i].newTea.teaname,
+                        istea: users[i].newTea.istea,
+                        rating: users[i].newTea.rating,
+                        reviewtimes: 1
+                     }
+                     controllers.getStateRating(function (result) {
+                        stateRating = result.rows
+                        let flag = 0;
+
+                        if (stateRating.length > 0) {
+                           for (let i = 0; i < stateRating.length; i++) {
+                              if (stateRating[i].teaname == user.teaname) {
+                                 stateRating[i].reviewtimes++;
+                                 controllers.getStateReview(function (results) {
+                                    stateReview = results.rows
+                                    let rate = 0;
+                                    for (let j = 0; j < stateReview.length; j++) {
+                                       if (user.teaname == stateReview[j].teaname) {
+                                          rate += stateReview[j].rating
+                                       }
+                                    }
+
+                                    stateRating[i].rating = rate / stateRating[i].reviewtimes;
+                                    stateRating[i].rating = Math.floor(stateRating[i].rating * 100) / 100
+                                    controllers.updateTeaRating(stateRating[i])
+                                 })
+
+                                 flag++
+                              }
+                           }
+                        }
+                        if ((flag === 0) || (stateRating.length == 0)) {
+                           controllers.createNewRating(newRating)
+                        }
+                     })
+                  })
+               }
             }
          }
-      }
-      let deleteId;
+
+      })
+
       if (data == 'teaDelete') {
          bot.sendMessage(chatId, 'Введите номер отзыва, который хотите удалить');
          let count = 0
          bot.on('message', msg => {
+
             count++
             if (count === 1) {
-               index = msg.text - 1
-               deleteId = myReview[index].id
-               deleteId = state.stateRewiew.findIndex(item => item.id == deleteId)
-               state.stateRewiew.splice(deleteId, 1)
-               bot.sendMessage(chatId, 'Ваш отзыв успешно удалён.')
-               for (let i = 0; i < state.stateRating.length; i++) {
-
-                  if ((state.stateRating[i].name == myReview[index].name) && (state.stateRating[i].review_times == 1)) {
-                     deleteId = state.stateRating.findIndex(item => item.name == myReview[index].name)
-                     state.stateRating.splice(deleteId, 1)
-                  } else if ((state.stateRating[i].name == myReview[index].name) && (state.stateRating[i].review_times > 1)) {
-                     let rate = 0;
-                     state.stateRating[i].review_times -= 1
-                     for (let j = 0; j < state.stateRewiew.length; j++) {
-                        if (myReview[index].name == state.stateRewiew[j].name) {
-                           rate += state.stateRewiew[j].rating
+               let deleteId;
+               controllers.getMyReview(msg.from.id, function (result) {
+                  let myReview = result.rows;
+                  if (+msg.text <= myReview.length) {
+                     let index = msg.text - 1
+                     deleteId = myReview[index].id
+                     controllers.deleteReviewTea(deleteId)
+                     bot.sendMessage(chatId, 'Ваш отзыв успешно удалён')
+                     controllers.getStateRating(function (result) {
+                        stateRating = result.rows
+                        for (let i = 0; i < stateRating.length; i++) {
+                           if ((stateRating[i].teaname == myReview[index].teaname) && (stateRating[i].reviewtimes == 1)) {
+                              deleteId = stateRating[i].id
+                              controllers.deleteRatingTea(deleteId)
+                           } else if ((stateRating[i].teaname == myReview[index].teaname) && (stateRating[i].reviewtimes > 1)) {
+                              stateRating[i].reviewtimes -= 1;
+                              controllers.getStateReview(function (results) {
+                                 stateReview = results.rows
+                                 let rate = 0;
+                                 for (let j = 0; j < stateReview.length; j++) {
+                                    if (myReview[index].teaname == stateReview[j].teaname) {
+                                       rate += stateReview[j].rating
+                                    }
+                                 }
+                                 stateRating[i].rating = rate / stateRating[i].reviewtimes;
+                                 stateRating[i].rating = Math.floor(stateRating[i].rating * 100) / 100
+                                 controllers.updateTeaRating(stateRating[i])
+                              })
+                           }
                         }
-                     }
-                     state.stateRating[i].rating = rate / state.stateRating[i].review_times
-                     state.stateRating[i].rating = Math.floor(state.stateRating[i].rating * 100) / 100
+                     })
+                  } else {
+                     bot.sendMessage(chatId, 'Вы ввели не число или несуществующий номер. Пожалуйста, введите существующий номер отзыва.')
                   }
-               }
-
+               })
             }
          })
       }
