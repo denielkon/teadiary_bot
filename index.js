@@ -43,7 +43,7 @@ const start = () => {
          inline_keyboard: [
             [{ text: 'Шу Пуэр', callback_data: 'puerShuRate' }, { text: 'Шен Пуэр', callback_data: 'puerShenRate' }],
             [{ text: 'Улун', callback_data: 'ulunRate' }, { text: 'Зелёный', callback_data: 'greenRate' }],
-            [{ text: 'Красный', callback_data: 'redRate' }]
+            [{ text: 'Красный', callback_data: 'redRate' }, { text: 'Белый', callback_data: 'whiteRate' }]
          ]
       })
    }
@@ -53,7 +53,7 @@ const start = () => {
          inline_keyboard: [
             [{ text: 'Шу Пуэр', callback_data: 'puerShuAdd' }, { text: 'Шен Пуэр', callback_data: 'puerShenAdd' }],
             [{ text: 'Улун', callback_data: 'ulunAdd' }, { text: 'Зелёный', callback_data: 'greenAdd' }],
-            [{ text: 'Красный', callback_data: 'redAdd' }]
+            [{ text: 'Красный', callback_data: 'redAdd' }, { text: 'Белый', callback_data: 'whiteAdd' }]
          ]
       })
    }
@@ -62,7 +62,7 @@ const start = () => {
          inline_keyboard: [
             [{ text: 'Шу Пуэр', callback_data: 'puerShuView' }, { text: 'Шен Пуэр', callback_data: 'puerShenView' }],
             [{ text: 'Улун', callback_data: 'ulunView' }, { text: 'Зелёный', callback_data: 'greenView' }],
-            [{ text: 'Красный', callback_data: 'redView' }]
+            [{ text: 'Красный', callback_data: 'redView' }, { text: 'Белый', callback_data: 'whiteView' }]
 
          ]
       })
@@ -71,6 +71,7 @@ const start = () => {
       reply_markup: JSON.stringify({
          inline_keyboard: [
             [{ text: 'Да', callback_data: 'addTeaToState' }],
+            [{ text: 'Начать ввод заново', callback_data: 'addTeaToStateAgain' }],
          ]
       })
    }
@@ -144,6 +145,9 @@ const start = () => {
          })
       }
       if (text === 'Добавить отзыв') {
+         controllers.setTeaName(0, chatId)
+         controllers.setTeaDes(0, chatId)
+         controllers.setTeaRating(0, chatId)
          return bot.sendMessage(chatId, 'На какой чай хотите добавить отзыв?', lookOptionsForAdd);
       }
    })
@@ -159,90 +163,119 @@ const start = () => {
             result = thisTea.map((item) =>
                `${item.teaname}, <strong>${item.rating}</strong>  \n\n`);
             result = result.join('');
+            result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
             bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
          }
       }
       if (data == 'puerShuRate') {
          controllers.getRatings(1, function (result) {
             thisTea = result.rows
-            showRates(thisTea)
+            thisTeaKind = 'Шу Пуэры'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'puerShenRate') {
          controllers.getRatings(2, function (result) {
             thisTea = result.rows
-            showRates(thisTea)
+            thisTeaKind = 'Шен Пуэры'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'ulunRate') {
          controllers.getRatings(3, function (result) {
             thisTea = result.rows
-            showRates(thisTea)
+            thisTeaKind = 'Улуны'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'greenRate') {
          controllers.getRatings(4, function (result) {
             thisTea = result.rows
-            showRates(thisTea)
+            thisTeaKind = 'Зелёные'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'redRate') {
          controllers.getRatings(5, function (result) {
             thisTea = result.rows
-            showRates(thisTea)
+            thisTeaKind = 'Красные'
+            showReview(thisTea, thisTeaKind)
          })
       }
-      function showReview(thisTea) {
+      if (data == 'whiteRate') {
+         controllers.getRatings(6, function (result) {
+            thisTea = result.rows
+            thisTeaKind = 'Белые'
+            showReview(thisTea, thisTeaKind)
+         })
+      }
+      function showReview(thisTea, thisTeaKind) {
          if (thisTea.length == 0) {
             bot.sendMessage(chatId, 'Пока что нет отзывов на такие чаи')
          } else {
             result = thisTea.map((item) =>
                `${item.autorname}\n<b>${item.teaname}, ${item.rating}</b>\n${item.teadescription}\n\n`);
             result = result.join('');
+            result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
             bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
          }
       }
       if (data == 'puerShuView') {
          controllers.getReviews(1, function (result) {
             thisTea = result.rows
-            showReview(thisTea)
+            thisTeaKind = 'Шу Пуэры'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'puerShenView') {
          controllers.getReviews(2, function (result) {
             thisTea = result.rows
-            showReview(thisTea)
+            thisTeaKind = 'Шен Пуэры'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'redView') {
          controllers.getReviews(5, function (result) {
             thisTea = result.rows
-            showReview(thisTea)
+            thisTeaKind = 'Красные'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'ulunView') {
          controllers.getReviews(3, function (result) {
             thisTea = result.rows
-            showReview(thisTea)
+            thisTeaKind = 'Улуны'
+            showReview(thisTea, thisTeaKind)
          })
       }
       if (data == 'greenView') {
          controllers.getReviews(4, function (result) {
             thisTea = result.rows
-            showReview(thisTea)
+            thisTeaKind = 'Зелёные'
+            showReview(thisTea, thisTeaKind)
+         })
+      }
+      if (data == 'whiteView') {
+         controllers.getReviews(6, function (result) {
+            thisTea = result.rows
+            thisTeaKind = 'Белые'
+            showReview(thisTea, thisTeaKind)
          })
       }
 
+      if (data == 'addTeaToStateAgain') {
+         controllers.setTeaName(0, chatId)
+         controllers.setTeaDes(0, chatId)
+         controllers.setTeaRating(0, chatId)
+         return bot.sendMessage(chatId, 'На какой чай хотите добавить отзыв?', lookOptionsForAdd);
+      }
       controllers.getUser(function (result) {
          let users = result.rows
          for (let i = 0; i < users.length; i++) {
             users[i].newTea = {}
             if (msg.from.id == users[i].userid) {
-
                let teaName, description, rating;
-               let flag
-
-               if ((data == 'puerShuAdd') || (data == 'puerShenAdd') || (data == 'ulunAdd') || (data == 'redAdd') || (data == 'greenAdd')) {
+               if ((data == 'puerShuAdd') || (data == 'puerShenAdd') || (data == 'ulunAdd') || (data == 'redAdd') || (data == 'greenAdd') || (data == 'whiteAdd')) {
                   isTea = data;
                   if (isTea === 'puerShuAdd') {
                      controllers.setTeaIsTea(1, msg.from.id)
@@ -259,39 +292,58 @@ const start = () => {
                   if (isTea === 'redAdd') {
                      controllers.setTeaIsTea(5, msg.from.id)
                   }
+                  if (isTea === 'whiteAdd') {
+                     controllers.setTeaIsTea(6, msg.from.id)
+                  }
 
                   bot.sendMessage(chatId, 'Введите название чая');
                   users[i].teaFlag = 1
-                  users[i].cou = 1
-                  flag = 0
-
                   if ((users[i].teaFlag == 1) && (msg.from.id == users[i].userid)) {
-                     bot.on('message', async msg => {
-                        flag++
-                        if ((users[i].cou === 1) && (flag === 1) && (msg.from.id == users[i].userid)) {
-                           teaName = msg.text;
-                           controllers.setTeaName(teaName, msg.from.id)
-                           bot.sendMessage(chatId, 'Напишите описание')
-                           users[i].cou++
-                           flag += 2
+                     controllers.getNewTea(msg.from.id, function (result) {
+                        users[i].counter = 1
+                        users[i].newTea = result.rows[0]
+                        if ((users[i].newTea.teaname == '0') && (msg.from.id == users[i].userid)) {
+                           bot.on('message', msg => {
+                              if ((users[i].newTea.teaname == '0') && (msg.from.id == users[i].userid)) {
+                                 if ((msg.text == "/start") || (msg.text == "Добавить отзыв") || (msg.text == "Посмотреть рейтинги") || (msg.text == "Все отзывы") || (msg.text == "Мои отзывы")) {
+                                    return users[i].teaFlag = 0
+                                 }
+                                 teaName = msg.text;
+                                 users[i].newTea.teaname = teaName
+                                 controllers.setTeaName(teaName, msg.from.id)
+                                 setdes()
+                                 bot.sendMessage(chatId, 'Напишите описание')
+                              }
+                           })
                         }
-                        if ((users[i].cou == 2) && (flag === 4) && (msg.from.id == users[i].userid)) {
-                           description = msg.text
-                           controllers.setTeaDes(description, msg.from.id)
-                           users[i].cou++
-                           flag += 2
-                        }
-                        if ((users[i].cou == 3) && (flag === 6) && (msg.from.id == users[i].userid)) {
-                           bot.sendMessage(chatId, 'Поставьте рейтинг', showRateNumber);
-                           users[i].cou = 0;
 
-                           flag = 0
+                        function setdes() {
+                           if ((users[i].newTea.teaname !== '0') && (msg.from.id == users[i].userid)) {
+                              bot.on('message', msg => {
+                                 if ((users[i].newTea.teadescription == '0') && (msg.from.id == users[i].userid)) {
+                                    if ((msg.text == "/start") || (msg.text == "Добавить отзыв") || (msg.text == "Посмотреть рейтинги") || (msg.text == "Все отзывы") || (msg.text == "Мои отзывы")) {
+                                       return users[i].teaFlag = 0
+                                    }
+                                    description = msg.text
+                                    users[i].newTea.teadescription = description
+                                    controllers.setTeaDes(description, msg.from.id)
+                                    if (users[i].newTea.teaname !== users[i].newTea.teadescription) {
+                                       setRate()
+                                    }
+                                 }
+                              })
+                           }
                         }
+
+                        function setRate() {
+                           if ((users[i].newTea.teadescription !== '0') && (msg.from.id == users[i].userid)) {
+                              bot.sendMessage(chatId, 'Поставьте рейтинг', showRateNumber);
+                           }
+                           users[i].teaFlag = 0;
+                        }
+                        users[i].newTea.teadescription = '0'
                      })
-                     flag = 0
                   }
-                  flag = 0
-                  users[i].teaFlag = 0;
                }
 
                if ((data == '1') || (data == '2') || (data == '3') || (data == '4') || (data == '5') || (data == '6') || (data == '7') || (data == '8') || (data == '9') || (data == '10')) {
@@ -310,8 +362,26 @@ const start = () => {
                         users[i].newTea.autorname = msg.from.first_name;
                         controllers.setTeaAutor(users[i].newTea.autorname, msg.from.id)
                      }
-
-                     bot.sendMessage(chatId, `${users[i].newTea.autorname}\n${users[i].newTea.teaname}, ${users[i].newTea.rating} \n${users[i].newTea.teadescription}\n\n Записать чай?`, reviewAction, { parse_mode: "HTML" });
+                     let teaKind
+                     if (users[i].newTea.istea == 1) {
+                        teaKind = 'Шу Пуэр'
+                     }
+                     if (users[i].newTea.istea == 2) {
+                        teaKind = 'Шен Пуэр'
+                     }
+                     if (users[i].newTea.istea == 3) {
+                        teaKind = 'Улун'
+                     }
+                     if (users[i].newTea.istea == 4) {
+                        teaKind = 'Зелёный чай'
+                     }
+                     if (users[i].newTea.istea == 5) {
+                        teaKind = 'Красный чай'
+                     }
+                     if (users[i].newTea.istea == 6) {
+                        teaKind = 'Белый чай'
+                     }
+                     bot.sendMessage(chatId, `${users[i].newTea.autorname}\n${teaKind}\n${users[i].newTea.teaname}, ${users[i].newTea.rating} \n${users[i].newTea.teadescription}\n\nЗаписать чай?`, reviewAction, { parse_mode: "HTML" });
                   })
                }
 
@@ -359,6 +429,7 @@ const start = () => {
                         }
                      })
                   })
+
                }
             }
          }
