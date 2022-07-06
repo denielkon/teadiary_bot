@@ -156,7 +156,7 @@ const start = () => {
       data = msg.data;
       const chatId = msg.message.chat.id;
       let result;
-      function showRates(thisTea) {
+      function showRates(thisTea, thisTeaKind) {
          if (thisTea.length == 0) {
             bot.sendMessage(chatId, 'Пока что нет рейнтигов и отзывов на такие чаи')
          } else {
@@ -171,42 +171,42 @@ const start = () => {
          controllers.getRatings(1, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Шу Пуэры'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       if (data == 'puerShenRate') {
          controllers.getRatings(2, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Шен Пуэры'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       if (data == 'ulunRate') {
          controllers.getRatings(3, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Улуны'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       if (data == 'greenRate') {
          controllers.getRatings(4, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Зелёные'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       if (data == 'redRate') {
          controllers.getRatings(5, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Красные'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       if (data == 'whiteRate') {
          controllers.getRatings(6, function (result) {
             thisTea = result.rows
             thisTeaKind = 'Белые'
-            showReview(thisTea, thisTeaKind)
+            showRates(thisTea, thisTeaKind)
          })
       }
       function showReview(thisTea, thisTeaKind) {
