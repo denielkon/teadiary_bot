@@ -125,6 +125,20 @@ const start = () => {
       if (text === 'Все отзывы') {
          return bot.sendMessage(chatId, 'Выберете вид чая', lookOptionsWithDescription);
       }
+      function checkMessage(message) {
+         if (message.length < 4090) return message
+         let countChar = 0;
+         let checkResult = []
+         for (let i = 0; i < message.split('\n\n').length; i++) {
+            countChar += message.split('\n\n').length;
+            checkResult.push(message.split('\n\n')[i])
+            if (countChar > 4090) {
+               bot.sendMessage(chatId, result, reviewDelete)
+               countChar = 0;
+               checkResult = []
+            }
+         }
+      }
       if (text === 'Мои отзывы') {
          let myReview = [];
          myReview.length = 0;
@@ -140,7 +154,19 @@ const start = () => {
                result = myReview.map((item) =>
                   `${item.numberReview}. ${item.autorname}\n${item.teaname}, ${item.rating}\n${item.teadescription}\n\n`);
                result = result.join('');
-               bot.sendMessage(chatId, `${result}`, reviewDelete)
+               let countChar = 0;
+               let checkResult = []
+               result = result.split('\n\n')
+               for (let i = 0; i < result.length; i++) {
+                  countChar += result[i].length;
+                  if (countChar > 3700) {
+                     bot.sendMessage(chatId, checkResult.join('\n\n'))
+                     countChar = 0;
+                     checkResult.length = []
+                  }
+                  checkResult.push(result[i])
+               }
+               if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), reviewDelete)
             }
          })
       }
@@ -161,10 +187,23 @@ const start = () => {
             bot.sendMessage(chatId, 'Пока что нет рейнтигов и отзывов на такие чаи')
          } else {
             result = thisTea.map((item) =>
-               `${item.teaname}, <strong>${item.rating}</strong>  \n\n`);
+               `${item.teaname}, <strong>${item.rating}</strong>\n\n`);
             result = result.join('');
             result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
-            bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
+            let countChar = 0;
+            let checkResult = []
+            result = result.split('\n\n')
+            for (let i = 0; i < result.length; i++) {
+               countChar += result[i].length;
+               if (countChar > 3700) {
+                  bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
+                  countChar = 0;
+                  checkResult.length = []
+               }
+               checkResult.push(result[i])
+            }
+            if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
+
          }
       }
       if (data == 'puerShuRate') {
@@ -217,7 +256,19 @@ const start = () => {
                `${item.autorname}\n<b>${item.teaname}, ${item.rating}</b>\n${item.teadescription}\n\n`);
             result = result.join('');
             result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
-            bot.sendMessage(chatId, `${result}`, { parse_mode: "HTML" })
+            let countChar = 0;
+            let checkResult = []
+            result = result.split('\n\n')
+            for (let i = 0; i < result.length; i++) {
+               countChar += result[i].length;
+               if (countChar > 3700) {
+                  bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
+                  countChar = 0;
+                  checkResult.length = []
+               }
+               checkResult.push(result[i])
+            }
+            if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
          }
       }
       if (data == 'puerShuView') {
