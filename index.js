@@ -98,7 +98,6 @@ const start = () => {
    bot.on('message', async msg => {
       const text = msg.text;
       const chatId = msg.chat.id;
-
       if (text === '/start') {
          let users;
          controllers.getUser(function (result) {
@@ -348,7 +347,7 @@ const start = () => {
                   }
 
                   bot.sendMessage(chatId, 'Введите название чая');
-                  users[i].teaFlag = 1
+                  users[i].teaFlag = 1;
                   if ((users[i].teaFlag == 1) && (msg.from.id == users[i].userid)) {
                      controllers.getNewTea(msg.from.id, function (result) {
                         users[i].counter = 1
@@ -443,6 +442,26 @@ const start = () => {
                      let user = users[i].newTea;
 
                      controllers.createNewTea(users[i])
+                     let teaKind
+                     if (users[i].newTea.istea == 1) {
+                        teaKind = 'Шу Пуэр'
+                     }
+                     if (users[i].newTea.istea == 2) {
+                        teaKind = 'Шен Пуэр'
+                     }
+                     if (users[i].newTea.istea == 3) {
+                        teaKind = 'Улун'
+                     }
+                     if (users[i].newTea.istea == 4) {
+                        teaKind = 'Зелёный чай'
+                     }
+                     if (users[i].newTea.istea == 5) {
+                        teaKind = 'Красный чай'
+                     }
+                     if (users[i].newTea.istea == 6) {
+                        teaKind = 'Белый чай'
+                     }
+                     bot.sendMessage(-374465935, `<strong>${users[i].newTea.autorname}</strong> добавляет новый отзыв\n\n${teaKind}\n<strong>${users[i].newTea.teaname}, ${users[i].newTea.rating}</strong> \n${users[i].newTea.teadescription}`, { parse_mode: "HTML" });
                      const newRating = {
                         teaname: users[i].newTea.teaname,
                         istea: users[i].newTea.istea,
