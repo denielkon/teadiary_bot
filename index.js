@@ -1,7 +1,8 @@
 const TelegramApi = require('node-telegram-bot-api')
 const express = require('express')
 const Router = require('express');
-const controllers = require('./controllers/controllers')
+const controllers = require('./controllers/controllers');
+const { checkLengthAndSendMessages, translateTeaKindToText } = require('./functions.js');
 
 const PORT = process.env.PORT || 8080
 const app = express()
@@ -10,15 +11,11 @@ require('dotenv').config()
 const opt = { polling: true }
 const bot = new TelegramApi(process.env.BOT_TOKEN, opt)
 
-
-
-
 app.use(express.json())
 app.use('/api', Router)
 app.listen(PORT, () => {
    console.log(`App running on port ${PORT}.`)
 })
-
 
 const start = () => {
    bot.setMyCommands([
@@ -30,15 +27,13 @@ const start = () => {
    const getMainMenu = {
       reply_markup: JSON.stringify({
          resize_keyboard: true,
-
          keyboard: [
             [{ text: 'Посмотреть рейтинги' }, { text: 'Все отзывы' }],
             [{ text: 'Добавить отзыв' }, { text: 'Мои отзывы' }],
-
          ]
       })
    }
-   const lookOptions = {
+   const lookOptionsForRate = {
       reply_markup: JSON.stringify({
          inline_keyboard: [
             [{ text: 'Шу Пуэр', callback_data: 'puerShuRate' }, { text: 'Шен Пуэр', callback_data: 'puerShenRate' }],
@@ -57,7 +52,7 @@ const start = () => {
          ]
       })
    }
-   const lookOptionsWithDescription = {
+   const lookOptionsForDescription = {
       reply_markup: JSON.stringify({
          inline_keyboard: [
             [{ text: 'Шу Пуэр', callback_data: 'puerShuView' }, { text: 'Шен Пуэр', callback_data: 'puerShenView' }],
@@ -82,9 +77,7 @@ const start = () => {
          ]
       })
    }
-
    const showRateNumber = {
-
       reply_markup: JSON.stringify({
          inline_keyboard: [
             [{ text: '1 💩', callback_data: '1' }, { text: '2 🤢', callback_data: '2' }, { text: '3 🥴', callback_data: '3' }],
@@ -98,74 +91,46 @@ const start = () => {
    bot.on('message', async msg => {
       const text = msg.text;
       const chatId = msg.chat.id;
+
       if (text === '/start') {
-         let users;
+         let users = [];
          controllers.getUser(function (result) {
             users = result.rows;
-            let flag = 0;
+            let newUserflag = 0;
             for (let i = 0; i < users.length; i++) {
                if (users[i].userid == msg.from.id) {
-                  flag = 1
+                  newUserflag = 1;
                }
             }
-            if (flag == 0) {
-               controllers.createUser(msg.from.id)
+            if (newUserflag === 0) {
+               controllers.createUser(msg.from.id);
             }
          })
-
          return bot.sendMessage(chatId, `Добро пожаловать в чайный дневник, ${msg.from.first_name}! Ты можешь посмотреть отзывы о чае или написать свой`, getMainMenu);
       }
       if (text === '/mail') {
          return bot.sendMessage(chatId, 'football-forever@bk.ru \n Применимо на сайте <a href="https://moychay.ru/">Мойчай.ру</a>', { parse_mode: "HTML" })
       }
       if (text === 'Посмотреть рейтинги') {
-         return bot.sendMessage(chatId, 'Выберете вид чая', lookOptions);
+         return bot.sendMessage(chatId, 'Выберете вид чая', lookOptionsForRate);
       }
       if (text === 'Все отзывы') {
-         return bot.sendMessage(chatId, 'Выберете вид чая', lookOptionsWithDescription);
+         return bot.sendMessage(chatId, 'Выберете вид чая', lookOptionsForDescription);
       }
-      function checkMessage(message) {
-         if (message.length < 4090) return message
-         let countChar = 0;
-         let checkResult = []
-         for (let i = 0; i < message.split('\n\n').length; i++) {
-            countChar += message.split('\n\n').length;
-            checkResult.push(message.split('\n\n')[i])
-            if (countChar > 4090) {
-               bot.sendMessage(chatId, result, reviewDelete)
-               countChar = 0;
-               checkResult = []
-            }
-         }
-      }
+      
       if (text === 'Мои отзывы') {
-         let myReview = [];
-         myReview.length = 0;
-         let numberReview = 0;
          controllers.getMyReview(msg.from.id, function (result) {
             let myReview = result.rows;
-            for (let i = 0; i < myReview.length; i++) {
-               myReview[i].numberReview = ++numberReview;
-            }
+            let numberReview = 0;
             if (myReview.length === 0) {
                bot.sendMessage(chatId, `У вас пока нет отзывов`)
             } else {
-               result = myReview.map((item) =>
-                  `${item.numberReview}. ${item.autorname}\n${item.teaname}, ${item.rating}\n${item.teadescription}\n\n`);
-               result = result.join('');
-               let countChar = 0;
-               let checkResult = []
-               result = result.split('\n\n')
-               for (let i = 0; i < result.length; i++) {
-                  countChar += result[i].length;
-                  if (countChar > 3700) {
-                     bot.sendMessage(chatId, checkResult.join('\n\n'))
-                     countChar = 0;
-                     checkResult.length = []
-                  }
-                  checkResult.push(result[i])
+               for (let i = 0; i < myReview.length; i++) {
+                  myReview[i].numberReview = ++numberReview;
                }
-               if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), reviewDelete)
+               result = myReview.map((item) =>
+                  `${item.numberReview}. ${item.teaname}, ${item.rating}\n${item.teadescription}\n\n`).join('');
+               checkLengthAndSendMessages(bot, result, chatId, reviewDelete);
             }
          })
       }
@@ -180,370 +145,181 @@ const start = () => {
    bot.on('callback_query', (msg) => {
       data = msg.data;
       const chatId = msg.message.chat.id;
-      let result;
       function showRates(thisTea, thisTeaKind) {
          if (thisTea.length == 0) {
-            bot.sendMessage(chatId, 'Пока что нет рейнтигов и отзывов на такие чаи')
+            bot.sendMessage(chatId, 'Пока что нет отзывов на такие чаи')
          } else {
-            result = thisTea.map((item) =>
-               `${item.teaname}, <strong>${item.rating}</strong>\n\n`);
-            result = result.join('');
-            result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
-            let countChar = 0;
-            let checkResult = []
-            result = result.split('\n\n')
-            for (let i = 0; i < result.length; i++) {
-               countChar += result[i].length;
-               if (countChar > 3700) {
-                  bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
-                  countChar = 0;
-                  checkResult.length = []
-               }
-               checkResult.push(result[i])
+            const setTea = [...new Set(thisTea.map(item => { return item.teaname }))];
+            const ratesTea = [];
+            for (let i = 0; i < setTea.length; i++) { 
+               ratesTea.push({ teaname: setTea[i], rating: 0, reviewTimes: 0 });
             }
-            if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
-
+            for (let i = 0; i < ratesTea.length; i++) {
+               for (let j = 0; j < thisTea.length; j++) {
+                  if (ratesTea[i].teaname.toLowerCase() === thisTea[j].teaname.toLowerCase()) {
+                     ratesTea[i].rating += thisTea[j].rating;
+                     ratesTea[i].reviewTimes++;
+                  }   
+               }
+            }
+            let rateMessage = ratesTea.map((item) =>
+               `${item.teaname}, <strong>${
+                  Math.floor(item.rating / item.reviewTimes * 100) / 100
+               }</strong>\n\n`);
+               rateMessage = `<strong>${thisTeaKind}</strong>\n\n\n${rateMessage.join('')}`;
+            checkLengthAndSendMessages(bot, rateMessage, chatId, { parse_mode: "HTML" });
          }
-      }
-      if (data == 'puerShuRate') {
-         controllers.getRatings(1, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Шу Пуэры'
-            showRates(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'puerShenRate') {
-         controllers.getRatings(2, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Шен Пуэры'
-            showRates(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'ulunRate') {
-         controllers.getRatings(3, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Улуны'
-            showRates(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'greenRate') {
-         controllers.getRatings(4, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Зелёные'
-            showRates(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'redRate') {
-         controllers.getRatings(5, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Красные'
-            showRates(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'whiteRate') {
-         controllers.getRatings(6, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Белые'
-            showRates(thisTea, thisTeaKind)
-         })
       }
       function showReview(thisTea, thisTeaKind) {
          if (thisTea.length == 0) {
             bot.sendMessage(chatId, 'Пока что нет отзывов на такие чаи')
          } else {
-            result = thisTea.map((item) =>
+            let reviewMessage = thisTea.map((item) =>
                `${item.autorname}\n<b>${item.teaname}, ${item.rating}</b>\n${item.teadescription}\n\n`);
-            result = result.join('');
-            result = `<strong>${thisTeaKind}</strong>\n\n\n${result}`
-            let countChar = 0;
-            let checkResult = []
-            result = result.split('\n\n')
-            for (let i = 0; i < result.length; i++) {
-               countChar += result[i].length;
-               if (countChar > 3700) {
-                  bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
-                  countChar = 0;
-                  checkResult.length = []
-               }
-               checkResult.push(result[i])
-            }
-            if (countChar < 3700) bot.sendMessage(chatId, checkResult.join('\n\n'), { parse_mode: "HTML" })
+               reviewMessage = `<strong>${thisTeaKind}</strong>\n\n\n${reviewMessage.join('')}`
+            checkLengthAndSendMessages(bot, reviewMessage, chatId, { parse_mode: "HTML" });
          }
       }
-      if (data == 'puerShuView') {
-         controllers.getReviews(1, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Шу Пуэры'
-            showReview(thisTea, thisTeaKind)
+
+      if ((data == 'puerShuView') || (data == 'puerShuRate')) {
+         controllers.getReviews(1, function (result) { 
+            data == 'puerShuView' ? showReview(result.rows, 'Шу Пуэры') : showRates(result.rows, 'Шу Пуэры');
          })
       }
-      if (data == 'puerShenView') {
+      if ((data == 'puerShenView') || (data == 'puerShenRate')) {
          controllers.getReviews(2, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Шен Пуэры'
-            showReview(thisTea, thisTeaKind)
+            data == 'puerShenView' ? showReview(result.rows, 'Шен Пуэры') : showRates(result.rows, 'Шен Пуэры');
          })
       }
-      if (data == 'redView') {
-         controllers.getReviews(5, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Красные'
-            showReview(thisTea, thisTeaKind)
-         })
-      }
-      if (data == 'ulunView') {
+      if ((data == 'ulunView') || (data == 'ulunRate')){
          controllers.getReviews(3, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Улуны'
-            showReview(thisTea, thisTeaKind)
+            data == 'ulunView' ? showReview(result.rows, 'Улуны') : showRates(result.rows, 'Улуны');
          })
       }
-      if (data == 'greenView') {
+      if ((data == 'greenView') || (data == 'greenRate')){
          controllers.getReviews(4, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Зелёные'
-            showReview(thisTea, thisTeaKind)
+            data == 'greenView' ? showReview(result.rows, 'Зелёные') : showRates(result.rows, 'Зелёные');
          })
       }
-      if (data == 'whiteView') {
+      if ((data == 'redView') || (data == 'redRate')){
+         controllers.getReviews(5, function (result) {
+            data == 'redView' ? showReview(result.rows, 'Красные') : showRates(result.rows, 'Красные');
+         })
+      }
+      if ((data == 'whiteView') || (data == 'whiteRate')){
          controllers.getReviews(6, function (result) {
-            thisTea = result.rows
-            thisTeaKind = 'Белые'
-            showReview(thisTea, thisTeaKind)
+            data == 'whiteView' ? showReview(result.rows, 'Белые') : showRates(result.rows, 'Белые');
          })
       }
 
       if (data == 'addTeaToStateAgain') {
-         controllers.setTeaName(0, chatId)
-         controllers.setTeaDes(0, chatId)
-         controllers.setTeaRating(0, chatId)
          return bot.sendMessage(chatId, 'На какой чай хотите добавить отзыв?', lookOptionsForAdd);
       }
+
       controllers.getUser(function (result) {
-         let users = result.rows
+         let users = result.rows;
          for (let i = 0; i < users.length; i++) {
-            users[i].newTea = {}
+            users[i].newTea = {};
             if (msg.from.id == users[i].userid) {
-               let teaName, description, rating;
+               let teaName, description;
                if ((data == 'puerShuAdd') || (data == 'puerShenAdd') || (data == 'ulunAdd') || (data == 'redAdd') || (data == 'greenAdd') || (data == 'whiteAdd')) {
                   isTea = data;
-                  if (isTea === 'puerShuAdd') {
-                     controllers.setTeaIsTea(1, msg.from.id)
-                  }
-                  if (isTea === 'puerShenAdd') {
-                     controllers.setTeaIsTea(2, msg.from.id)
-                  }
-                  if (isTea === 'ulunAdd') {
-                     controllers.setTeaIsTea(3, msg.from.id)
-                  }
-                  if (isTea === 'greenAdd') {
-                     controllers.setTeaIsTea(4, msg.from.id)
-                  }
-                  if (isTea === 'redAdd') {
-                     controllers.setTeaIsTea(5, msg.from.id)
-                  }
-                  if (isTea === 'whiteAdd') {
-                     controllers.setTeaIsTea(6, msg.from.id)
-                  }
-
+                  if (isTea === 'puerShuAdd') controllers.setTeaIsTea(1, msg.from.id);
+                  if (isTea === 'puerShenAdd') controllers.setTeaIsTea(2, msg.from.id);
+                  if (isTea === 'ulunAdd') controllers.setTeaIsTea(3, msg.from.id);
+                  if (isTea === 'greenAdd') controllers.setTeaIsTea(4, msg.from.id);
+                  if (isTea === 'redAdd') controllers.setTeaIsTea(5, msg.from.id);
+                  if (isTea === 'whiteAdd') controllers.setTeaIsTea(6, msg.from.id);
                   bot.sendMessage(chatId, 'Введите название чая');
                   users[i].teaFlag = 1;
                   if ((users[i].teaFlag == 1) && (msg.from.id == users[i].userid)) {
                      controllers.getNewTea(msg.from.id, function (result) {
-                        users[i].counter = 1
-                        users[i].newTea = result.rows[0]
+                        users[i].counter = 1;
+                        users[i].newTea = result.rows[0];
                         if ((users[i].newTea.teaname == '0') && (msg.from.id == users[i].userid)) {
                            bot.on('message', msg => {
                               if ((users[i].newTea.teaname == '0') && (msg.from.id == users[i].userid)) {
                                  if ((msg.text == "/start") || (msg.text == "Добавить отзыв") || (msg.text == "Посмотреть рейтинги") || (msg.text == "Все отзывы") || (msg.text == "Мои отзывы")) {
-                                    return users[i].teaFlag = 0
+                                    return users[i].teaFlag = 0;
                                  }
                                  teaName = msg.text;
-                                 users[i].newTea.teaname = teaName
-                                 controllers.setTeaName(teaName, msg.from.id)
-                                 setdes()
-                                 bot.sendMessage(chatId, 'Напишите описание')
+                                 users[i].newTea.teaname = teaName;
+                                 controllers.setTeaName(teaName, msg.from.id);
+                                 setDescription();
+                                 bot.sendMessage(chatId, 'Напишите описание');
                               }
                            })
                         }
 
-                        function setdes() {
+                        function setDescription() {
                            if ((users[i].newTea.teaname !== '0') && (msg.from.id == users[i].userid)) {
                               bot.on('message', msg => {
                                  if ((users[i].newTea.teadescription == '0') && (msg.from.id == users[i].userid)) {
                                     if ((msg.text == "/start") || (msg.text == "Добавить отзыв") || (msg.text == "Посмотреть рейтинги") || (msg.text == "Все отзывы") || (msg.text == "Мои отзывы")) {
-                                       return users[i].teaFlag = 0
+                                       return users[i].teaFlag = 0;
                                     }
-                                    description = msg.text
-                                    users[i].newTea.teadescription = description
-                                    controllers.setTeaDes(description, msg.from.id)
+                                    description = msg.text;
+                                    users[i].newTea.teadescription = description;
+                                    controllers.setTeaDes(description, msg.from.id);
                                     if (users[i].newTea.teaname !== users[i].newTea.teadescription) {
-                                       setRate()
+                                       setRating();
                                     }
                                  }
                               })
                            }
                         }
-
-                        function setRate() {
+                        function setRating() {
                            if ((users[i].newTea.teadescription !== '0') && (msg.from.id == users[i].userid)) {
                               bot.sendMessage(chatId, 'Поставьте рейтинг', showRateNumber);
                            }
-                           users[i].teaFlag = 0;
                         }
-                        users[i].newTea.teadescription = '0'
                      })
                   }
                }
-
                if ((data == '1') || (data == '2') || (data == '3') || (data == '4') || (data == '5') || (data == '6') || (data == '7') || (data == '8') || (data == '9') || (data == '10')) {
                   controllers.getNewTea(msg.from.id, function (result) {
-                     users[i].newTea = result.rows[0]
-                     rating = +data;
-                     users[i].newTea.rating = rating;
-                     controllers.setTeaRating(rating, msg.from.id)
-                     users[i].newTea.userId = msg.from.id
-
-
-                     if (msg.from.last_name !== undefined) {
+                     users[i].newTea = result.rows[0];
+                     users[i].newTea.rating = +data;
+                     controllers.setTeaRating(+data, msg.from.id);
+                     users[i].newTea.userId = msg.from.id;
+                     if (msg.from.last_name) {
                         users[i].newTea.autorname = `${msg.from.first_name} ${msg.from.last_name}`;
                         controllers.setTeaAutor(users[i].newTea.autorname, msg.from.id)
                      } else {
                         users[i].newTea.autorname = msg.from.first_name;
                         controllers.setTeaAutor(users[i].newTea.autorname, msg.from.id)
                      }
-                     let teaKind
-                     if (users[i].newTea.istea == 1) {
-                        teaKind = 'Шу Пуэр'
-                     }
-                     if (users[i].newTea.istea == 2) {
-                        teaKind = 'Шен Пуэр'
-                     }
-                     if (users[i].newTea.istea == 3) {
-                        teaKind = 'Улун'
-                     }
-                     if (users[i].newTea.istea == 4) {
-                        teaKind = 'Зелёный чай'
-                     }
-                     if (users[i].newTea.istea == 5) {
-                        teaKind = 'Красный чай'
-                     }
-                     if (users[i].newTea.istea == 6) {
-                        teaKind = 'Белый чай'
-                     }
+                     const teaKind = translateTeaKindToText(users[i].newTea.istea);
                      bot.sendMessage(chatId, `${users[i].newTea.autorname}\n${teaKind}\n${users[i].newTea.teaname}, ${users[i].newTea.rating} \n${users[i].newTea.teadescription}\n\nЗаписать чай?`, reviewAction, { parse_mode: "HTML" });
                   })
                }
-
                if (data == 'addTeaToState') {
-                  bot.sendMessage(chatId, 'Отлично! Вы добавили отзыв')
+                  bot.sendMessage(chatId, 'Отлично! Вы добавили отзыв');
                   controllers.getNewTea(msg.from.id, function (result) {
                      users[i].newTea = result.rows[0];
-                     let user = users[i].newTea;
-
-                     controllers.createNewTea(users[i])
-                     let teaKind
-                     if (users[i].newTea.istea == 1) {
-                        teaKind = 'Шу Пуэр'
-                     }
-                     if (users[i].newTea.istea == 2) {
-                        teaKind = 'Шен Пуэр'
-                     }
-                     if (users[i].newTea.istea == 3) {
-                        teaKind = 'Улун'
-                     }
-                     if (users[i].newTea.istea == 4) {
-                        teaKind = 'Зелёный чай'
-                     }
-                     if (users[i].newTea.istea == 5) {
-                        teaKind = 'Красный чай'
-                     }
-                     if (users[i].newTea.istea == 6) {
-                        teaKind = 'Белый чай'
-                     }
-                     bot.sendMessage(-374465935, `<strong>${users[i].newTea.autorname}</strong> добавляет новый отзыв\n\n${teaKind}\n<strong>${users[i].newTea.teaname}, ${users[i].newTea.rating}</strong> \n${users[i].newTea.teadescription}`, { parse_mode: "HTML" });
-                     const newRating = {
-                        teaname: users[i].newTea.teaname,
-                        istea: users[i].newTea.istea,
-                        rating: users[i].newTea.rating,
-                        reviewtimes: 1
-                     }
-                     controllers.getStateRating(function (result) {
-                        stateRating = result.rows
-                        let flag = 0;
-
-                        if (stateRating.length > 0) {
-                           for (let i = 0; i < stateRating.length; i++) {
-                              if (stateRating[i].teaname == user.teaname) {
-                                 stateRating[i].reviewtimes++;
-                                 controllers.getStateReview(function (results) {
-                                    stateReview = results.rows
-                                    let rate = 0;
-                                    for (let j = 0; j < stateReview.length; j++) {
-                                       if (user.teaname == stateReview[j].teaname) {
-                                          rate += stateReview[j].rating
-                                       }
-                                    }
-
-                                    stateRating[i].rating = rate / stateRating[i].reviewtimes;
-                                    stateRating[i].rating = Math.floor(stateRating[i].rating * 100) / 100
-                                    controllers.updateTeaRating(stateRating[i])
-                                 })
-
-                                 flag++
-                              }
-                           }
-                        }
-                        if ((flag === 0) || (stateRating.length == 0)) {
-                           controllers.createNewRating(newRating)
-                        }
-                     })
+                     controllers.createNewTea(users[i]);
+                     const teaKind = translateTeaKindToText(users[i].newTea.istea);
+                     //bot.sendMessage(-374465935, `<strong>${users[i].newTea.autorname}</strong> добавляет новый отзыв\n\n${teaKind}\n<strong>${users[i].newTea.teaname}, ${users[i].newTea.rating}</strong> \n${users[i].newTea.teadescription}`, { parse_mode: "HTML" });
                   })
-
                }
             }
          }
-
       })
 
       if (data == 'teaDelete') {
          bot.sendMessage(chatId, 'Введите номер отзыва, который хотите удалить');
-         let count = 0
+         let count = 0;
          bot.on('message', msg => {
-
             count++
             if (count === 1) {
                let deleteId;
                controllers.getMyReview(msg.from.id, function (result) {
                   let myReview = result.rows;
                   if (+msg.text <= myReview.length) {
-                     let index = msg.text - 1
-                     deleteId = myReview[index].id
-                     controllers.deleteReviewTea(deleteId)
-                     bot.sendMessage(chatId, 'Ваш отзыв успешно удалён')
-                     controllers.getStateRating(function (result) {
-                        stateRating = result.rows
-                        for (let i = 0; i < stateRating.length; i++) {
-                           if ((stateRating[i].teaname == myReview[index].teaname) && (stateRating[i].reviewtimes == 1)) {
-                              deleteId = stateRating[i].id
-                              controllers.deleteRatingTea(deleteId)
-                           } else if ((stateRating[i].teaname == myReview[index].teaname) && (stateRating[i].reviewtimes > 1)) {
-                              stateRating[i].reviewtimes -= 1;
-                              controllers.getStateReview(function (results) {
-                                 stateReview = results.rows
-                                 let rate = 0;
-                                 for (let j = 0; j < stateReview.length; j++) {
-                                    if (myReview[index].teaname == stateReview[j].teaname) {
-                                       rate += stateReview[j].rating
-                                    }
-                                 }
-                                 stateRating[i].rating = rate / stateRating[i].reviewtimes;
-                                 stateRating[i].rating = Math.floor(stateRating[i].rating * 100) / 100
-                                 controllers.updateTeaRating(stateRating[i])
-                              })
-                           }
-                        }
-                     })
+                     let index = msg.text - 1;
+                     deleteId = myReview[index].id;
+                     controllers.deleteReviewTea(deleteId);
+                     bot.sendMessage(chatId, 'Ваш отзыв успешно удалён');
                   } else {
                      bot.sendMessage(chatId, 'Вы ввели не число или несуществующий номер. Пожалуйста, введите существующий номер отзыва.')
                   }
@@ -553,7 +329,6 @@ const start = () => {
       }
    })
    bot.on('polling_error', (err) => console.log(err))
-
 }
 
 start()
