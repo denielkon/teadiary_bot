@@ -181,35 +181,20 @@ const start = () => {
          }
       }
 
-      if ((data == 'puerShuView') || (data == 'puerShuRate')) {
-         controllers.getReviews(1, function (result) { 
-            data == 'puerShuView' ? showReview(result.rows, 'Шу Пуэры') : showRates(result.rows, 'Шу Пуэры');
-         })
-      }
-      if ((data == 'puerShenView') || (data == 'puerShenRate')) {
-         controllers.getReviews(2, function (result) {
-            data == 'puerShenView' ? showReview(result.rows, 'Шен Пуэры') : showRates(result.rows, 'Шен Пуэры');
-         })
-      }
-      if ((data == 'ulunView') || (data == 'ulunRate')){
-         controllers.getReviews(3, function (result) {
-            data == 'ulunView' ? showReview(result.rows, 'Улуны') : showRates(result.rows, 'Улуны');
-         })
-      }
-      if ((data == 'greenView') || (data == 'greenRate')){
-         controllers.getReviews(4, function (result) {
-            data == 'greenView' ? showReview(result.rows, 'Зелёные') : showRates(result.rows, 'Зелёные');
-         })
-      }
-      if ((data == 'redView') || (data == 'redRate')){
-         controllers.getReviews(5, function (result) {
-            data == 'redView' ? showReview(result.rows, 'Красные') : showRates(result.rows, 'Красные');
-         })
-      }
-      if ((data == 'whiteView') || (data == 'whiteRate')){
-         controllers.getReviews(6, function (result) {
-            data == 'whiteView' ? showReview(result.rows, 'Белые') : showRates(result.rows, 'Белые');
-         })
+      if (data.includes('View') || data.includes('Rate')) {
+         let teaKindFordb, teaKind;
+         if (data.includes('puerShu')) teaKindFordb = 1;
+         if (data.includes('puerShen')) teaKindFordb = 2;
+         if (data.includes('ulun')) teaKindFordb = 3;
+         if (data.includes('green')) teaKindFordb = 4;
+         if (data.includes('red')) teaKindFordb = 5;
+         if (data.includes('white')) teaKindFordb = 6;
+         teaKind = translateTeaKindToText(teaKindFordb);
+         controllers.getReviews(teaKindFordb, function (result) {
+            if (data.includes('View')) {
+               showReview(result.rows, teaKind);
+            } else showRates(result.rows, teaKind);
+         }) 
       }
 
       if (data == 'addTeaToStateAgain') {
@@ -299,7 +284,7 @@ const start = () => {
                      users[i].newTea = result.rows[0];
                      controllers.createNewTea(users[i]);
                      const teaKind = translateTeaKindToText(users[i].newTea.istea);
-                     //bot.sendMessage(-374465935, `<strong>${users[i].newTea.autorname}</strong> добавляет новый отзыв\n\n${teaKind}\n<strong>${users[i].newTea.teaname}, ${users[i].newTea.rating}</strong> \n${users[i].newTea.teadescription}`, { parse_mode: "HTML" });
+                     bot.sendMessage(-374465935, `<strong>${users[i].newTea.autorname}</strong> добавляет новый отзыв\n\n${teaKind}\n<strong>${users[i].newTea.teaname}, ${users[i].newTea.rating}</strong> \n${users[i].newTea.teadescription}`, { parse_mode: "HTML" });
                   })
                }
             }
